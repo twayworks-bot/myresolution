@@ -1,0 +1,210 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;600;700&family=Pretendard:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --font-sans: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-serif: 'Noto Serif KR', Georgia, serif;
+  --app-font-size: 16px;
+}
+
+html {
+  font-size: var(--app-font-size);
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: #121316;
+  color: #2d3748;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  user-select: text;
+}
+
+/* Background Atmosphere */
+.app-bg-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-image: url('assets/bg.jpg');
+  background-size: cover;
+  background-position: center 30%;
+  background-repeat: no-repeat;
+  filter: brightness(0.85);
+}
+
+.app-bg-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(
+    180deg,
+    rgba(15, 18, 24, 0.72) 0%,
+    rgba(22, 27, 34, 0.82) 40%,
+    rgba(13, 17, 23, 0.92) 100%
+  );
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.app-container {
+  position: relative;
+  z-index: 10;
+  max-width: 640px;
+  margin: 0 auto;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Typography styles for Essay / Column read */
+.font-editorial {
+  font-family: var(--font-serif);
+}
+
+.essay-text {
+  font-family: var(--font-serif);
+  line-height: 1.85;
+  letter-spacing: -0.015em;
+  word-break: keep-all;
+  text-align: justify;
+}
+
+.essay-lead {
+  font-size: 1.08rem;
+  line-height: 1.85;
+}
+
+/* Scripture Quote Box */
+.scripture-quote-box {
+  position: relative;
+  background: linear-gradient(135deg, rgba(254, 252, 246, 0.96) 0%, rgba(248, 244, 235, 0.96) 100%);
+  border-left: 4px solid #b45309;
+  border-radius: 0.875rem;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.12), 0 2px 6px -1px rgba(0, 0, 0, 0.08);
+}
+
+.dark .scripture-quote-box {
+  background: linear-gradient(135deg, rgba(30, 36, 48, 0.95) 0%, rgba(24, 29, 39, 0.95) 100%);
+  border-left: 4px solid #d97706;
+}
+
+/* Gospel Decision Styles */
+/* 1. Deep Midnight Blue Theme (Default - Solemn & Contemplative) */
+.gospel-decision-deepblue {
+  background: linear-gradient(135deg, #0b132b 0%, #1c2541 60%, #151e3f 100%);
+  border: 1px solid rgba(129, 140, 248, 0.35);
+  box-shadow: 0 8px 24px -4px rgba(11, 19, 43, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  color: #f8fafc;
+}
+
+.gospel-decision-deepblue .decision-label {
+  color: #fbbf24; /* Warm Gold */
+  border-bottom: 1px dashed rgba(251, 191, 36, 0.3);
+}
+
+.gospel-decision-deepblue .decision-body {
+  color: #e2e8f0;
+  font-family: var(--font-serif);
+  line-height: 1.8;
+}
+
+/* 2. Warm Beige Theme (Alternative - Gentle & Peaceful) */
+.gospel-decision-warmbeige {
+  background: linear-gradient(135deg, #fbf7ee 0%, #f4ecdc 100%);
+  border: 1px solid #dfd2be;
+  box-shadow: 0 6px 18px -3px rgba(120, 80, 40, 0.12);
+  color: #3e3223;
+}
+
+.gospel-decision-warmbeige .decision-label {
+  color: #92400e; /* Rich amber */
+  border-bottom: 1px dashed rgba(146, 64, 14, 0.25);
+}
+
+.gospel-decision-warmbeige .decision-body {
+  color: #443727;
+  font-family: var(--font-serif);
+  line-height: 1.8;
+}
+
+/* Magazine Card */
+.magazine-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.magazine-card:hover {
+  transform: translateY(-2px);
+}
+
+.magazine-card:active {
+  transform: scale(0.99);
+}
+
+/* Accordion Transitions */
+.accordion-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, padding 0.3s ease;
+  opacity: 0;
+}
+
+.accordion-item.is-open .accordion-content {
+  max-height: 2500px;
+  opacity: 1;
+}
+
+.accordion-item.is-open .chevron-icon {
+  transform: rotate(180deg);
+}
+
+.chevron-icon {
+  transition: transform 0.3s ease;
+}
+
+/* Floating Action Button */
+.fab-shadow {
+  box-shadow: 0 10px 30px -5px rgba(245, 158, 11, 0.5), 0 4px 12px -2px rgba(0, 0, 0, 0.3);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+/* Line Clamp Utilities */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-4 {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

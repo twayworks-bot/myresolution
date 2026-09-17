@@ -1,0 +1,124 @@
+# ===================================================================
+# .dockerignore for 말씀 나눔 매거진 웹앱
+# ===================================================================
+
+# -------------------------------------------------------------------
+# 1. 개인정보, 비밀 키 & 민감 데이터 (Secrets & Sensitive Files)
+# -------------------------------------------------------------------
+.env
+.env.*
+*.env
+syncgithub.*
+*.pem
+*.key
+*.pub
+*.crt
+*.pfx
+*.p12
+id_rsa*
+id_ed25519*
+*.token
+tokens.json
+credentials.json
+client_secrets*.json
+secrets.*
+*.auth
+*.secret
+.aws/
+.gcp/
+.azure/
+.gh/
+
+# -------------------------------------------------------------------
+# 2. Git 형상관리 파일 (Git Metadata)
+# -------------------------------------------------------------------
+.git/
+.gitignore
+.gitattributes
+.github/
+.gitlab/
+
+# -------------------------------------------------------------------
+# 3. 데이터베이스 파일 & 볼륨 디렉토리 (Databases & Persistent Data)
+# -------------------------------------------------------------------
+# SQLite DB는 persistent volume(/app/data)으로 런타임에 분리 연동
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.sqlite3-journal
+*.db-wal
+*.db-shm
+sermon_sharing.db
+data/
+*.sql
+*.dump
+*.bak
+*.backup
+
+# -------------------------------------------------------------------
+# 4. 파이썬 바이트코드 & 캐시 (Python Bytecode & Cache)
+# -------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.cache/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.tox/
+.nox/
+.coverage*
+htmlcov/
+
+# -------------------------------------------------------------------
+# 5. 로컬 가상환경 및 패키지 산출물 (Virtual Environments & Builds)
+# -------------------------------------------------------------------
+.venv/
+.venv*/
+venv/
+env/
+ENV/
+build/
+dist/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# -------------------------------------------------------------------
+# 6. IDE, 텍스트 에디터 & OS 파일 (IDE, Editor & OS Files)
+# -------------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# -------------------------------------------------------------------
+# 7. 도커 빌드 설정 파일 (Docker Configuration Files)
+# -------------------------------------------------------------------
+Dockerfile*
+.dockerignore
+docker-compose*.yml
+docker-compose*.yaml
+
+# -------------------------------------------------------------------
+# 8. 문서, 로컬 스크립트, 개인 메모 & 로그 (Docs, Local Scripts, Logs)
+# -------------------------------------------------------------------
+README.md
+README*.txt
+notes/
+run.bat
+*.log
+logs/
+pip-log.txt
+*.tmp
+*.temp

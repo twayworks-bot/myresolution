@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>말씀 나눔 매거진</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            amber: {
+              50: '#fffbeb',
+              100: '#fef3c7',
+              200: '#fde68a',
+              700: '#b45309',
+              800: '#92400e',
+              900: '#78350f',
+            },
+            deepnavy: {
+              800: '#162238',
+              900: '#0b132b',
+              950: '#060a17',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="static/styles.css" />
+</head>
+<body class="antialiased">
+
+  <!-- Background Layer -->
+  <div class="app-bg-layer"></div>
+  <div class="app-bg-overlay"></div>
+
+  <!-- Main Mobile App Frame -->
+  <div class="app-container">
+
+    <!-- ============================================== -->
+    <!-- SCREEN 1: MAIN MAGAZINE FEED VIEW              -->
+    <!-- ============================================== -->
+    <div id="view-main" class="flex-1 flex flex-col p-4 pb-24">
+      <!-- App Header -->
+      <header class="pt-3 pb-6 flex items-center justify-between border-b border-white/10">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-500/20 text-amber-300">
+              <i data-lucide="book-open" class="w-4 h-4"></i>
+            </span>
+            <span class="text-xs tracking-widest text-amber-300/90 font-medium uppercase">Grace & Fellowship</span>
+          </div>
+          <h1 class="text-2xl font-bold text-white tracking-tight mt-1">말씀 나눔 매거진</h1>
+          <p class="text-xs text-stone-300/80 mt-0.5">주일 설교 묵상 및 성도간 소그룹 나눔지</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <!-- Tone Selector Badge -->
+          <button id="global-tone-toggle" onclick="toggleDecisionTone()" class="text-xs px-2.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white/90 border border-white/15 flex items-center gap-1.5 transition">
+            <span id="tone-icon">🌙</span>
+            <span id="tone-text">딥블루 결단</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Search / Series Filter Bar -->
+      <div class="my-4 flex items-center justify-between">
+        <span class="text-xs font-semibold text-stone-300 flex items-center gap-1.5">
+          <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-400"></i>
+          발행된 나눔 카드 <span id="card-count-badge" class="ml-1 px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">1</span>
+        </span>
+        <span class="text-xs text-stone-400">카드를 탭하여 세부 나눔 보기</span>
+      </div>
+
+      <!-- Magazine Cards List -->
+      <div id="cards-container" class="space-y-6">
+        <!-- Dynamic Cards rendered by app.js -->
+        <div class="p-8 text-center text-stone-300">
+          <div class="animate-spin inline-block w-6 h-6 border-2 border-amber-400 border-t-transparent rounded-full mb-3"></div>
+          <p class="text-sm">나눔지 매거진 카드를 불러오는 중입니다...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- SCREEN 2: DETAIL SHARING VIEW                  -->
+    <!-- ============================================== -->
+    <div id="view-detail" class="hidden flex-1 flex flex-col p-4 pb-28">
+      <!-- Detail Sticky Navigation Bar -->
+      <nav class="sticky top-2 z-30 mb-4 bg-stone-900/85 backdrop-blur-md rounded-2xl p-2.5 px-3.5 border border-white/15 shadow-xl flex items-center justify-between">
+        <button onclick="showMainView()" class="flex items-center gap-1.5 text-sm font-medium text-amber-300 hover:text-amber-200 transition py-1 px-2 rounded-lg hover:bg-white/5 active:scale-95">
+          <i data-lucide="arrow-left" class="w-4 h-4"></i>
+          <span>전체 카드</span>
+        </button>
+
+        <div class="flex items-center gap-1.5">
+          <!-- Font Size Adjuster -->
+          <div class="flex items-center bg-white/10 rounded-lg p-0.5 border border-white/10 text-xs text-white">
+            <button onclick="changeFontSize(-1)" title="글자 작게" class="px-2 py-1 hover:bg-white/15 rounded text-xs font-semibold">가-</button>
+            <button onclick="changeFontSize(1)" title="글자 크게" class="px-2 py-1 hover:bg-white/15 rounded text-xs font-semibold">가+</button>
+          </div>
+          <!-- Toggle All Accordions -->
+          <button id="toggle-all-btn" onclick="toggleAllAccordions()" class="text-xs px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-medium transition flex items-center gap-1">
+            <i data-lucide="chevrons-up-down" class="w-3.5 h-3.5"></i>
+            <span id="toggle-all-text">모두 펼치기</span>
+          </button>
+        </div>
+      </nav>
+
+      <!-- Detail Card Content Container -->
+      <div id="detail-content" class="space-y-6">
+        <!-- Loaded dynamically via app.js -->
+      </div>
+    </div>
+
+  </div> <!-- /app-container -->
+
+  <!-- ============================================== -->
+  <!-- FLOATING ACTION BUTTON (ADMIN ICON)           -->
+  <!-- ============================================== -->
+  <div class="fixed bottom-6 right-6 z-40 flex flex-col items-end">
+    <button id="fab-admin-btn" onclick="openAdminModal()" class="group relative flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-tr from-amber-600 via-amber-500 to-amber-400 text-stone-950 fab-shadow active:scale-90 transition-transform focus:outline-none" title="나눔지 추가 및 관리">
+      <!-- Glow effect -->
+      <span class="absolute inset-0 rounded-full bg-amber-400/40 animate-ping opacity-75 pointer-events-none"></span>
+      <i data-lucide="edit-3" class="w-6 h-6 stroke-[2.5] relative z-10 transition-transform group-hover:rotate-12"></i>
+    </button>
+    <span class="mt-1 text-[11px] font-semibold text-white/90 bg-stone-900/80 px-2 py-0.5 rounded-full backdrop-blur-sm border border-white/10 shadow pointer-events-none">
+      나눔지 관리
+    </span>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- ADMIN MODAL / DRAWER                           -->
+  <!-- ============================================== -->
+  <div id="admin-modal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
+    <div class="bg-stone-900 border border-white/15 rounded-t-3xl sm:rounded-2xl w-full max-w-xl max-h-[92vh] flex flex-col shadow-2xl text-stone-100 overflow-hidden">
+      <!-- Modal Header -->
+      <div class="p-4 sm:p-5 border-b border-white/10 flex items-center justify-between bg-stone-950/60">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-300 flex items-center justify-center">
+            <i data-lucide="folder-plus" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-base text-white">나눔지 관리 및 생성</h3>
+            <p class="text-xs text-stone-400">텍스트 붙여넣기로 나눔 카드를 즉시 생성합니다</p>
+          </div>
+        </div>
+        <button onclick="closeAdminModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-stone-300 flex items-center justify-center transition">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Modal Tabs -->
+      <div class="flex border-b border-white/10 bg-stone-950/30 px-4 text-xs font-semibold">
+        <button id="tab-create-btn" onclick="switchAdminTab('create')" class="py-3 px-4 border-b-2 border-amber-400 text-amber-300 transition">
+          + 텍스트로 신규 생성
+        </button>
+        <button id="tab-manage-btn" onclick="switchAdminTab('manage')" class="py-3 px-4 border-b-2 border-transparent text-stone-400 hover:text-stone-200 transition">
+          발행 목록 관리 (<span id="admin-card-count">0</span>)
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-4 sm:p-5 flex-1 overflow-y-auto space-y-4">
+
+        <!-- TAB 1: CREATE BY TEXT PASTE -->
+        <div id="tab-create" class="space-y-4">
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-semibold text-stone-300 flex items-center gap-1.5">
+              <i data-lucide="file-text" class="w-3.5 h-3.5 text-amber-400"></i>
+              나눔지 원문 텍스트 붙여넣기
+            </label>
+            <button onclick="loadSampleText()" class="text-xs text-amber-300/90 hover:text-amber-200 underline decoration-amber-400/50 flex items-center gap-1">
+              <i data-lucide="clipboard-check" class="w-3 h-3"></i>
+              20260913.txt 샘플 불러오기
+            </button>
+          </div>
+
+          <textarea id="raw-text-input" rows="8" placeholder="주일 설교 나눔지 텍스트를 여기에 그대로 붙여넣으세요... (일정, 제목, 본문, 요약, 핵심메시지, 나눔질문 1~7번 등)" class="w-full bg-stone-950/80 border border-white/15 rounded-xl p-3 text-xs text-stone-200 focus:border-amber-400 focus:outline-none leading-relaxed font-mono resize-none"></textarea>
+
+          <button id="parse-preview-btn" onclick="handleParseText()" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 font-bold text-sm shadow-lg flex items-center justify-center gap-2 active:scale-98 transition">
+            <i data-lucide="wand-2" class="w-4 h-4"></i>
+            <span>스마트 자동 분석 & 미리보기</span>
+          </button>
+
+          <!-- Parsed Interactive Preview / Edit Section -->
+          <div id="parse-result-container" class="hidden mt-4 pt-4 border-t border-white/10 space-y-3">
+            <div class="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 flex items-center justify-between">
+              <div class="text-xs text-amber-300 font-semibold flex items-center gap-1.5">
+                <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+                <span>자동 분석 완료! 내용을 확인하거나 수정한 후 저장하세요.</span>
+              </div>
+              <span id="parsed-topic-badge" class="text-[11px] px-2 py-0.5 rounded bg-amber-400/20 text-amber-300 font-bold">질문 7개</span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <label class="text-stone-400 text-[11px]">말씀 일정</label>
+                <input id="edit-date" type="text" class="w-full bg-stone-950 border border-white/15 rounded-lg p-2 text-xs text-white" />
+              </div>
+              <div>
+                <label class="text-stone-400 text-[11px]">설교 시리즈</label>
+                <input id="edit-series" type="text" class="w-full bg-stone-950 border border-white/15 rounded-lg p-2 text-xs text-white" />
+              </div>
+            </div>
+
+            <div class="text-xs">
+              <label class="text-stone-400 text-[11px]">설교 제목</label>
+              <input id="edit-title" type="text" class="w-full bg-stone-950 border border-white/15 rounded-lg p-2 text-xs text-white font-semibold" />
+            </div>
+
+            <div class="text-xs">
+              <label class="text-stone-400 text-[11px]">부제</label>
+              <input id="edit-subtitle" type="text" class="w-full bg-stone-950 border border-white/15 rounded-lg p-2 text-xs text-white" />
+            </div>
+
+            <div class="text-xs">
+              <label class="text-stone-400 text-[11px]">참고 성경말씀 구절</label>
+              <input id="edit-scripture-ref" type="text" class="w-full bg-stone-950 border border-white/15 rounded-lg p-2 text-xs text-white" />
+            </div>
+
+            <div class="text-xs">
+              <label class="text-stone-400 text-[11px]">성경 본문 구절 내용</label>
+              <textarea id="edit-scripture-text" rows="3" class="w-full bg-stone-950 border border-white/15 rounded-lg p-2 text-xs text-white leading-relaxed resize-none"></textarea>
+            </div>
+
+            <div class="text-xs">
+              <label class="text-stone-400 text-[11px]">설교 핵심 요약</label>
+              <textarea id="edit-summary" rows="3" class="w-full bg-stone-950 border border-white/15 rounded-lg p-2 text-xs text-white leading-relaxed resize-none"></textarea>
+            </div>
+
+            <div class="text-xs">
+              <label class="text-stone-400 text-[11px]">설교 핵심 메시지</label>
+              <textarea id="edit-key-message" rows="3" class="w-full bg-stone-950 border border-white/15 rounded-lg p-2 text-xs text-white leading-relaxed resize-none"></textarea>
+            </div>
+
+            <!-- Topics Preview Summary -->
+            <div class="text-xs pt-2">
+              <span class="text-stone-300 font-semibold block mb-1">분석된 나눔 질문 목록:</span>
+              <div id="parsed-topics-preview-list" class="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                <!-- Injected via app.js -->
+              </div>
+            </div>
+
+            <button id="save-card-btn" onclick="saveParsedCard()" class="w-full mt-2 py-3 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-bold text-sm shadow-lg flex items-center justify-center gap-2 active:scale-98 transition">
+              <i data-lucide="check" class="w-4 h-4"></i>
+              <span>이 내용으로 나눔 매거진 카드 생성하기</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- TAB 2: MANAGE EXISTING CARDS -->
+        <div id="tab-manage" class="hidden space-y-3">
+          <p class="text-xs text-stone-400">현재 데이터베이스에 저장된 나눔 카드들입니다.</p>
+          <div id="admin-cards-list" class="space-y-2 max-h-96 overflow-y-auto">
+            <!-- Injected via app.js -->
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Script -->
+  <script src="static/app.js"></script>
+</body>
+</html>
