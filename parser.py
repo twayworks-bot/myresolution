@@ -1,5 +1,22 @@
 import re
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
+
+
+def normalize_text(raw_text: str) -> str:
+    """
+    Normalizes pasted text before parsing.
+    - Unifies line endings (\\r\\n, \\r -> \\n)
+    - Removes leading/trailing whitespace on EVERY line (incl. NBSP / full-width spaces).
+      Text copied from terminals, messengers or e-mail is often indented
+      (e.g. every line starts with 2 spaces), which broke line-start based detection.
+    - Collapses 3+ consecutive blank lines into one blank line
+    """
+    text = raw_text.replace('\r\n', '\n').replace('\r', '\n')
+    text = text.replace('\u00a0', ' ').replace('\u3000', ' ').replace('\ufeff', '')
+    lines = [line.strip() for line in text.split('\n')]
+    text = '\n'.join(lines)
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    return text.strip()
 
 def parse_sermon_text(raw_text: str) -> Dict[str, Any]:
     """
@@ -14,7 +31,7 @@ def parse_sermon_text(raw_text: str) -> Dict[str, Any]:
     - key_message
     - topics: List of dicts (order, title, explanation, meditation_questions, gospel_decision)
     """
-    text = raw_text.replace('\r\n', '\n').strip()
+    text = normalize_text(raw_text)
     
     # 1. Date (e.g., "2026년 9월 13일 주일설교" or similar pattern)
     date_match = re.search(r'(\d{4}년\s*\d{1,2}월\s*\d{1,2}일[^\n]*)', text)
@@ -61,91 +78,23 @@ def parse_sermon_text(raw_text: str) -> Dict[str, Any]:
     summary = msg_split[0].strip() if len(msg_split) > 0 else ""
     after_msg_hdr = msg_split[1] if len(msg_split) > 1 else ""
     
-    # Find start of topics (e.g. "\n1. ")
-    first_topic_match = re.search(r'\n(?=1\.\s+)', after_msg_hdr)
-    if first_topic_match:
-        key_message = after_msg_hdr[:first_topic_match.start()].strip()
-        topics_section = after_msg_hdr[first_topic_match.start():].strip()
+    # Find start of topics: the first real topic header ("N. 제목" followed by "해설").
+    # Meditation-question numbers are ignored, so key_message is cut at the right place.
+    first_header = _first_topic_header_pos(after_msg_hdr)
+    if first_header is not None:
+        key_message = after_msg_hdr[:first_header].strip()
+        topics_section = after_msg_hdr[first_header:].strip()
     else:
         key_message = after_msg_hdr.strip()
         topics_section = ""
         
     # If topics_section is empty, search in the whole text
     if not topics_section:
-        topic_start = re.search(r'\n(?=1\.\s+)', text)
-        if topic_start:
-            topics_section = text[topic_start.start():].strip()
+        topic_start = _first_topic_header_pos(text)
+        if topic_start is not None:
+            topics_section = text[topic_start:].strip()
 
-    # 7. Discussion Topics parsing
-    # Pattern:
-    # {order}. {title}
-    # 해설 : {explanation}
-    # ➡ 묵상질문
-    # {1. ... 2. ... 3. ...}
-    # ➡ 복음적 결단 : {decision}
-    topic_pattern = re.compile(
-        r'(?:^|\n)(?P<order>\d+)\.\s*(?P<title>[^\n]+?)\s*\n+'
-        r'해설\s*[:：]\s*(?P<explanation>[\s\S]*?)\s*'
-        r'➡?\s*묵상\s*질문\s*\n*(?P<questions>[\s\S]*?)\s*'
-        r'➡?\s*복음적\s*결단\s*[:：]\s*(?P<decision>[\s\S]*?)(?=(?:\n\d+\.\s+[^\n]+?\n+해설\s*[:：])|\Z)',
-        re.MULTILINE
-    )
-    
-    matches = list(topic_pattern.finditer(topics_section))
-    topics: List[Dict[str, Any]] = []
-    
-    if matches:
-        for m in matches:
-            order = int(m.group('order'))
-            t_title = m.group('title').strip()
-            explanation = m.group('explanation').strip()
-            raw_qs = m.group('questions').strip()
-            # Split questions by numbered list (1., 2., 3.) or lines
-            q_lines = [
-                re.sub(r'^\d+\.\s*', '', line).strip() 
-                for line in raw_qs.split('\n') 
-                if line.strip()
-            ]
-            decision = m.group('decision').strip()
-            
-            topics.append({
-                "topic_order": order,
-                "topic_title": t_title,
-                "explanation": explanation,
-                "meditation_questions": q_lines,
-                "gospel_decision": decision
-            })
-    else:
-        # Fallback parser if custom format is slightly different
-        raw_blocks = re.split(r'\n(?=\d+\.\s+)', '\n' + topics_section)
-        for block in raw_blocks:
-            block = block.strip()
-            if not block:
-                continue
-            m = re.match(r'^(\d+)\.\s*([^\n]+)', block)
-            if not m:
-                continue
-            order = int(m.group(1))
-            t_title = m.group(2).strip()
-            body = block[m.end():].strip()
-            
-            exp_match = re.search(r'해설\s*[:：]\s*([\s\S]*?)(?=(?:➡?\s*묵상|➡?\s*복음적|\Z))', body)
-            explanation = exp_match.group(1).strip() if exp_match else body
-            
-            mq_match = re.search(r'묵상\s*질문\s*([\s\S]*?)(?=(?:➡?\s*복음적|\Z))', body)
-            mq_text = mq_match.group(1).strip() if mq_match else ""
-            q_lines = [re.sub(r'^\d+\.\s*', '', line).strip() for line in mq_text.split('\n') if line.strip()]
-            
-            dec_match = re.search(r'복음적\s*결단\s*[:：]\s*([\s\S]*)', body)
-            decision = dec_match.group(1).strip() if dec_match else ""
-            
-            topics.append({
-                "topic_order": order,
-                "topic_title": t_title,
-                "explanation": explanation,
-                "meditation_questions": q_lines,
-                "gospel_decision": decision
-            })
+    topics = parse_topics(topics_section)
 
     return {
         "date_display": date_display,
@@ -159,3 +108,132 @@ def parse_sermon_text(raw_text: str) -> Dict[str, Any]:
         "raw_content": raw_text,
         "topics": topics
     }
+
+
+# ----------------------------------------------------------------------
+# Discussion topic parsing (marker-based, colon-tolerant)
+# ----------------------------------------------------------------------
+# Section markers. The colon (":" / "：") and other separators ("-", "–")
+# after a marker are OPTIONAL, and the arrow (➡ / → / ▶ / ■ ...) and inner
+# spaces are optional too. Examples that all match:
+#   "➡ 복음적 결단 : ...", "➡ 복음적 결단", "➡복음적결단 ...", "복음적 결단- ..."
+_ARROW = r'(?:[➡→▶►▷■●◆\-•]\s*)?'
+_SEP = r'[ \t]*(?:[:：\-–—][ \t]*)?'
+
+# "해설" marker: must be at the start of a line.
+_EXPLANATION_RE = re.compile(r'^[ \t]*' + _ARROW + r'해[ \t]*설' + _SEP, re.MULTILINE)
+# "묵상질문" marker: whole line (questions follow on the next lines).
+_QUESTIONS_RE = re.compile(r'^[ \t]*' + _ARROW + r'묵[ \t]*상[ \t]*질[ \t]*문' + _SEP, re.MULTILINE)
+# "복음적 결단" marker: decision text may be on the same line or the next lines.
+_DECISION_RE = re.compile(r'^[ \t]*' + _ARROW + r'복[ \t]*음[ \t]*적[ \t]*결[ \t]*단' + _SEP, re.MULTILINE)
+
+# Numbered line "N. text"
+_NUMBERED_LINE_RE = re.compile(r'^[ \t]*(\d+)[.)][ \t]*(\S.*)$', re.MULTILINE)
+
+
+def _find_topic_headers(section: str) -> List[re.Match]:
+    """
+    Returns numbered lines that are real topic headers.
+
+    Meditation questions are also numbered ("1. ...", "2. ..."), so a numbered
+    line is treated as a topic header only when the next non-empty line is the
+    "해설" marker. If the text has no "해설" markers at all, numbered lines that
+    are NOT inside a 묵상질문 block are used instead.
+    """
+    candidates = list(_NUMBERED_LINE_RE.finditer(section))
+
+    headers = []
+    for m in candidates:
+        rest = section[m.end():].lstrip()
+        if _EXPLANATION_RE.match(rest):
+            headers.append(m)
+    if headers:
+        return headers
+
+    # Fallback (no "해설" markers): skip numbered lines that live between a
+    # 묵상질문 marker and the following 복음적 결단 marker.
+    question_spans = []
+    for qm in _QUESTIONS_RE.finditer(section):
+        dm = _DECISION_RE.search(section, qm.end())
+        question_spans.append((qm.start(), dm.start() if dm else len(section)))
+    return [
+        m for m in candidates
+        if not any(s <= m.start() < e for s, e in question_spans)
+    ]
+
+
+def _first_topic_header_pos(text: str) -> Optional[int]:
+    """Start offset of the first real topic header in text, or None."""
+    headers = _find_topic_headers('\n' + text)
+    if not headers:
+        return None
+    return max(headers[0].start() - 1, 0)
+
+
+def _split_questions(raw: str) -> List[str]:
+    """Split a 묵상질문 block into individual questions (numbered or one per line)."""
+    raw = raw.strip()
+    if not raw:
+        return []
+    numbered = list(_NUMBERED_LINE_RE.finditer(raw))
+    if numbered:
+        questions = []
+        for i, m in enumerate(numbered):
+            end = numbered[i + 1].start() if i + 1 < len(numbered) else len(raw)
+            # Join wrapped continuation lines of the same question
+            q = ' '.join(line.strip() for line in raw[m.start(2):end].split('\n') if line.strip())
+            if q:
+                questions.append(q)
+        return questions
+    return [line.strip() for line in raw.split('\n') if line.strip()]
+
+
+def parse_topics(section: str) -> List[Dict[str, Any]]:
+    """
+    Parses the discussion topic area into a list of topics:
+
+        {order}. {title}
+        해설 [:] {explanation}
+        ➡ 묵상질문 [:]
+        1. ... 2. ... 3. ...
+        ➡ 복음적 결단 [:] {decision}   (same line or following lines)
+    """
+    if not section:
+        return []
+    section = '\n' + normalize_text(section)
+
+    headers = _find_topic_headers(section)
+    topics: List[Dict[str, Any]] = []
+
+    for i, h in enumerate(headers):
+        block_end = headers[i + 1].start() if i + 1 < len(headers) else len(section)
+        body = section[h.end():block_end]
+
+        exp_m = _EXPLANATION_RE.search(body)
+        q_m = _QUESTIONS_RE.search(body)
+        d_m = _DECISION_RE.search(body)
+
+        # Explanation: after "해설" (or block start) until the next marker
+        exp_start = exp_m.end() if exp_m else 0
+        exp_end_candidates = [m.start() for m in (q_m, d_m) if m and m.start() >= exp_start]
+        exp_end = min(exp_end_candidates) if exp_end_candidates else len(body)
+        explanation = body[exp_start:exp_end].strip()
+
+        # Meditation questions: after "묵상질문" until "복음적 결단" (or block end)
+        questions: List[str] = []
+        if q_m:
+            q_end = d_m.start() if d_m and d_m.start() > q_m.end() else len(body)
+            questions = _split_questions(body[q_m.end():q_end])
+
+        # Gospel decision: after "복음적 결단" until block end
+        decision = body[d_m.end():].strip() if d_m else ""
+
+        topics.append({
+            "topic_order": int(h.group(1)),
+            "topic_title": h.group(2).strip(),
+            "explanation": explanation,
+            "meditation_questions": questions,
+            "gospel_decision": decision,
+        })
+
+    return topics

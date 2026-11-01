@@ -17,12 +17,117 @@ let allExpanded = false;
 let parsedDataCache = null;
 
 // Initialize on load
-document.addEventListener('DOMContentLoaded', () => {
-  loadCards();
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadCards();
   if (window.lucide) {
     window.lucide.createIcons();
   }
+  // 개별 카드 링크(/card/{id} 또는 ?card={id})로 진입한 경우 해당 카드 상세를 바로 엽니다.
+  const linkedId = getCardIdFromUrl();
+  if (linkedId) {
+    openDetailView(linkedId, { history: 'replace' });
+  }
 });
+
+// 브라우저 뒤로가기/앞으로가기 지원
+window.addEventListener('popstate', () => {
+  const cardId = getCardIdFromUrl();
+  if (cardId) {
+    openDetailView(cardId, { history: 'none' });
+  } else {
+    showMainView({ history: 'none' });
+  }
+});
+
+// ----------------------------------------------------
+// 0. CARD LINK (고유 링크) HELPERS
+// ----------------------------------------------------
+// 현재 URL에서 카드 ID 추출: {prefix}/card/{id} 또는 ?card={id}
+function getCardIdFromUrl() {
+  const m = window.location.pathname.match(/\/card\/(\d+)\/?$/);
+  if (m) return parseInt(m[1], 10);
+  const q = new URLSearchParams(window.location.search).get('card');
+  return q && /^\d+$/.test(q) ? parseInt(q, 10) : null;
+}
+
+function getCardPath(cardId) {
+  return `${BASE_PREFIX}/card/${cardId}`;
+}
+
+// 카드별 공유용 절대 URL
+function getCardShareUrl(cardId) {
+  return `${window.location.origin}${getCardPath(cardId)}`;
+}
+
+function getMainPath() {
+  return `${BASE_PREFIX}/`;
+}
+
+// 클립보드 복사 (HTTP 환경 등 clipboard API 미지원 시 fallback)
+async function copyText(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (e) { /* fallback below */ }
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.setAttribute('readonly', '');
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+  document.body.removeChild(ta);
+  return ok;
+}
+
+async function copyCardLink(cardId, event) {
+  if (event) event.stopPropagation();
+  const url = getCardShareUrl(cardId);
+  const ok = await copyText(url);
+  if (ok) {
+    showToast('링크가 복사되었습니다. 카톡/문자에 붙여넣어 공유하세요.');
+  } else {
+    window.prompt('아래 링크를 복사하세요.', url);
+  }
+}
+
+// 모바일에서는 시스템 공유 시트, 그 외에는 링크 복사
+async function shareCurrentCard() {
+  if (!currentCard) return;
+  const url = getCardShareUrl(currentCard.id);
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: currentCard.title || '말씀 나눔 카드',
+        text: [currentCard.date_display, currentCard.title].filter(Boolean).join(' - '),
+        url
+      });
+      return;
+    } catch (e) {
+      if (e && e.name === 'AbortError') return; // 사용자가 공유 취소
+    }
+  }
+  copyCardLink(currentCard.id);
+}
+
+let toastTimer = null;
+function showToast(message) {
+  let el = document.getElementById('app-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'app-toast';
+    el.className = 'app-toast';
+    document.body.appendChild(el);
+  }
+  el.textContent = message;
+  el.classList.add('is-visible');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('is-visible'), 2400);
+}
 
 // Refresh Lucide Icons safely
 function refreshIcons() {
@@ -150,8 +255,13 @@ function renderMagazineCard(card) {
           <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
           소그룹 나눔과 복음적 결단 보기
         </span>
-        <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-white/5 group-hover:bg-amber-400 group-hover:text-stone-950 transition">
-          <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        <span class="flex items-center gap-1.5">
+          <button onclick="copyCardLink(${card.id}, event)" title="이 카드 링크 복사" class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white/5 hover:bg-white/15 text-stone-300 text-[11px] font-medium transition">
+            <i data-lucide="link" class="w-3 h-3"></i> 링크
+          </button>
+          <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-white/5 group-hover:bg-amber-400 group-hover:text-stone-950 transition">
+            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+          </span>
         </span>
       </div>
     </article>
@@ -161,11 +271,21 @@ function renderMagazineCard(card) {
 // ----------------------------------------------------
 // 2. DETAIL VIEW & ACCORDION RENDERING
 // ----------------------------------------------------
-async function openDetailView(cardId) {
+async function openDetailView(cardId, options = {}) {
+  const historyMode = options.history || 'push'; // 'push' | 'replace' | 'none'
   try {
     const res = await fetch(getApiUrl(`/api/cards/${cardId}`));
-    if (!res.ok) throw new Error('카드를 불러올 수 없습니다.');
+    if (!res.ok) throw new Error('카드를 찾을 수 없습니다. 삭제되었거나 잘못된 링크입니다.');
     currentCard = await res.json();
+
+    // 주소창을 카드 고유 링크로 변경 (새로고침/공유 시 같은 카드가 열림)
+    const path = getCardPath(cardId);
+    if (historyMode === 'push' && window.location.pathname !== path) {
+      history.pushState({ cardId }, '', path);
+    } else if (historyMode === 'replace') {
+      history.replaceState({ cardId }, '', path);
+    }
+    document.title = `${currentCard.title || '말씀 나눔 카드'} | 말씀 나눔 매거진`;
 
     document.getElementById('view-main').classList.add('hidden');
     document.getElementById('view-detail').classList.remove('hidden');
@@ -175,10 +295,21 @@ async function openDetailView(cardId) {
     refreshIcons();
   } catch (err) {
     alert(err.message);
+    // 잘못된 링크로 진입한 경우 목록 화면으로
+    if (historyMode !== 'push') showMainView({ history: 'replace' });
   }
 }
 
-function showMainView() {
+function showMainView(options = {}) {
+  const historyMode = options.history || 'push';
+  const mainPath = getMainPath();
+  if (historyMode === 'push' && window.location.pathname !== mainPath) {
+    history.pushState({}, '', mainPath);
+  } else if (historyMode === 'replace') {
+    history.replaceState({}, '', mainPath);
+  }
+  currentCard = null;
+  document.title = '말씀 나눔 매거진';
   document.getElementById('view-detail').classList.add('hidden');
   document.getElementById('view-main').classList.remove('hidden');
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -235,6 +366,17 @@ function renderDetailView() {
             ${escapeHtml(c.subtitle)}
           </p>
         ` : ''}
+
+        <!-- 카드 고유 링크 (바로가기 / 공유) -->
+        <div class="mt-3 flex items-center gap-2 p-2 pl-3 rounded-xl bg-white/5 border border-white/10">
+          <i data-lucide="link" class="w-3.5 h-3.5 text-amber-400 shrink-0"></i>
+          <a href="${escapeHtml(getCardPath(c.id))}" onclick="event.preventDefault()" class="flex-1 min-w-0 truncate text-[11px] text-stone-300 font-mono" title="이 카드의 고유 링크">
+            ${escapeHtml(getCardShareUrl(c.id))}
+          </a>
+          <button onclick="copyCardLink(${c.id}, event)" class="shrink-0 px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[11px] font-semibold transition flex items-center gap-1">
+            <i data-lucide="copy" class="w-3 h-3"></i> 복사
+          </button>
+        </div>
       </div>
 
       <!-- 본문 핵심 요약 (Essay Typography Column) -->
@@ -598,12 +740,12 @@ async function saveParsedCard() {
     }
 
     const resData = await res.json();
-    alert('새로운 나눔 매거진 카드가 성공적으로 등록되었습니다!');
     closeAdminModal();
     await loadCards();
-    // Directly open the created card
+    // Directly open the created card (주소창이 카드 고유 링크로 바뀜)
     if (resData.id) {
-      openDetailView(resData.id);
+      await openDetailView(resData.id);
+      showToast('나눔 카드가 등록되었습니다. 상단 "공유" 버튼으로 링크를 전달하세요.');
     }
   } catch (err) {
     alert('저장 오류: ' + err.message);
@@ -632,6 +774,9 @@ function renderAdminCardsList() {
         <span class="text-[10px] text-stone-400">나눔 질문 ${c.topic_count || 0}개</span>
       </div>
       <div class="flex items-center gap-1">
+        <button onclick="copyCardLink(${c.id}, event)" class="px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-medium transition">
+          링크 복사
+        </button>
         <button onclick="deleteCard(${c.id})" class="px-2.5 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-xs font-medium transition">
           삭제
         </button>

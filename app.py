@@ -1,6 +1,7 @@
 import os
+import html
 from typing import Dict, Any, List, Optional
-from fastapi import FastAPI, HTTPException, APIRouter
+from fastapi import FastAPI, HTTPException, APIRouter, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
@@ -140,7 +141,19 @@ if PREFIX:
     app.mount(f"{PREFIX}/static", StaticFiles(directory=static_dir), name="static_prefix")
 app.mount("/static", StaticFiles(directory=static_dir), name="static_root")
 
-def render_index_html():
+def _build_card_meta(card: Dict[str, Any], page_url: str) -> str:
+    """카드 공유 시 카카오톡/메신저 미리보기용 Open Graph 메타 태그 생성"""
+    title = card.get("title") or "말씀 나눔 카드"
+    parts = [p for p in (card.get("date_display"), card.get("subtitle")) if p]
+    desc = " | ".join(parts) or (card.get("summary") or "")[:120]
+    t, d, u = html.escape(title), html.escape(desc), html.escape(page_url)
+    return f"""  <meta property="og:type" content="article" />
+  <meta property="og:title" content="{t}" />
+  <meta property="og:description" content="{d}" />
+  <meta property="og:url" content="{u}" />
+  <meta name="description" content="{d}" />"""
+
+def render_index_html(card: Optional[Dict[str, Any]] = None, page_url: str = ""):
     index_path = os.path.join(static_dir, "index.html")
     if not os.path.exists(index_path):
         return HTMLResponse("<h1>index.html not found</h1>", status_code=404)
@@ -150,9 +163,22 @@ def render_index_html():
     base_href = f"{PREFIX}/" if PREFIX else "/"
     injection = f"""  <base href="{base_href}">
   <script>window.__BASE_PREFIX__ = "{PREFIX}";</script>"""
+    if card:
+        injection += "\n" + _build_card_meta(card, page_url)
+        # 브라우저 탭 제목도 카드 제목으로 표시
+        content = content.replace(
+            "<title>말씀 나눔 매거진</title>",
+            f"<title>{html.escape(card.get('title') or '')} | 말씀 나눔 매거진</title>", 1
+        )
     if "<head>" in content:
         content = content.replace("<head>", f"<head>\n{injection}", 1)
     return HTMLResponse(content)
+
+def render_card_page(card_id: int, request: Request):
+    """개별 카드 고유 링크(/card/{id}) - SPA를 내려주고 프론트엔드가 해당 카드 상세를 바로 엽니다."""
+    card = database.get_card(card_id)
+    # 카드가 없어도 SPA는 내려주고, 프론트엔드에서 '찾을 수 없음' 안내 후 목록으로 이동
+    return render_index_html(card, str(request.url))
 
 if PREFIX:
     @app.get(f"{PREFIX}")
@@ -163,6 +189,14 @@ if PREFIX:
     def serve_prefix_index():
         return render_index_html()
 
+    @app.get(f"{PREFIX}/card/{{card_id}}")
+    def serve_prefix_card(card_id: int, request: Request):
+        return render_card_page(card_id, request)
+
+    @app.get("/card/{card_id}")
+    def serve_root_card(card_id: int):
+        return RedirectResponse(url=f"{PREFIX}/card/{card_id}", status_code=307)
+
     @app.get("/")
     def serve_root():
         return RedirectResponse(url=f"{PREFIX}/", status_code=307)
@@ -170,6 +204,10 @@ else:
     @app.get("/")
     def serve_root_index():
         return render_index_html()
+
+    @app.get("/card/{card_id}")
+    def serve_root_card(card_id: int, request: Request):
+        return render_card_page(card_id, request)
 
 if __name__ == "__main__":
     import uvicorn
